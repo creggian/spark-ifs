@@ -3,11 +3,6 @@ package creggian.util
 import scala.util.Random
 import org.apache.spark._
 
-/*
-CORRALINPUT="100 10 4 10 corral/corral_rw_tmp2_100x10_10 corral/corral_rw_tmp2_100x10_10_class corral/corral_rw_tmp2_100x10_10_feature"
-nohup spark-submit --class creggian.util.CreateCorrALDatasetRowWise --master yarn-cluster --num-executors 10 --executor-memory 4G --driver-memory 4G --conf spark.eventLog.enabled=true --conf spark.eventLog.dir='hdfs:/user/creggian/logs' /home/creggian/spark/mRMR/target/scala-2.10/mrmr_2.10-1.0.jar $CORRALINPUT &
-*/
-
 // args(0) nrow
 // args(1) ncol
 // args(2) ncorr has to be power of 2

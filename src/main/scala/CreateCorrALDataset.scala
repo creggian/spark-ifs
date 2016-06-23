@@ -7,7 +7,7 @@ import org.apache.spark._
 // args(2) ncorr has to be power of 2
 // args(3) number of executors
 // args(4) number of iteration (loop)
-// args(4) output file
+// args(5) output file
 
 object CreateCorrALDataset {
         def main(args: Array[String]) {
