@@ -1,6 +1,6 @@
 ## Feature selection in high-dimensional dataset using MapReduce
 
-This is a scala library for Apache Spark for feature selection algorithms in MapReduce. This is the source code of the paper *Feature selection in high-dimensional dataset using MapReduce* (submitted)
+This is a scala library for Apache Spark for feature selection algorithms in MapReduce. This is the source code of the paper *Feature selection in high-dimensional dataset using MapReduce* (under revision)
 
 ### Content
 
