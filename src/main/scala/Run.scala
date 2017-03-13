@@ -1,77 +1,88 @@
 package creggian.mrmr
 
-import java.util.Iterator
 import org.apache.spark._
-import scala.collection.JavaConversions._
+import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.util.MLUtils
 
-import creggian.mrmr.lib.MRMR
+import creggian.mrmr.lib.IterativeFeatureSelection
 
 // ## common args between column-wise and row-wise
-// args(0) input file, eg /user/creggian/public/test_lymphoma_s3_noheader.csv
-// args(1) mRMR type:  either "column-wise" or "row-wise"
+// args(0) input file
+// args(1) iterative feature selection type:  either "column-wise" or "row-wise"
 // args(2) nfs
-// args(3) comma-separated class levels, eg 0,1,2,3,4
-// args(4) comma-separated features levels, eg -2,0,2
-// args(5) csv separator, eg ,
+// args(3) format, eg. 'csv', 'tsv', 'libsvm'
+// args(4) labelIdx
+// args(5) score class name (string)
+// args(6) class input file
+
+// val raw = MLUtils.loadLibSVMFile(sc, "a2a.libsvm")
 
 object Run {
-        def main(args: Array[String]) {
-
-                val sparkConf = new SparkConf().setAppName("Run")
-                val sc = new SparkContext(sparkConf)
-
-		val filename = args(0)
-		val csv = sc.textFile(filename)
-                val typeWise = args(1).toString // either "column-wise" or "row-wise"
-                val nfs = args(2).toInt
-
-		val separator = args(5)
-		val classLevels = args(3).split(separator).map(_.toDouble)
-		val featuresLevels = args(4).split(separator).map(_.toDouble)
-
-		val mrmr = new MRMR()
-
-		if (typeWise == "column-wise") {
-
-			// args(6) classIdx index of the class column (if column wise)
-
-			println("mRMR column-wise operation selected")
-
-			// 'v' variable for column-wise mRMR
-			val classIdx = args(6).toInt // column idx of the label or an Array of integer (0 is the first column's index !!)
-			val v = csv.map(x => x.split(separator).map(y => y.toDouble)) // org.apache.spark.rdd.RDD[Array[Double]]
-			val rdd = v // RDD[Array[Double]]
-
-			mrmr.columnWise(sc, rdd, nfs, classLevels, featuresLevels, classIdx)
-		}
-		if (typeWise == "row-wise") {
-			println("mRMR row-wise operation selected")
-
-			// args(6) headerIdx index of the header column, eg. 0
-			// args(7) input file with csv class vector
-			// args(8) score class, e.g. creggian.mrmr.feature.common.Score
-
-			val separator_bc = sc.broadcast(separator)
-
-			val headerIdx = args(6).toInt
-			val headerIdx_bc = sc.broadcast(headerIdx)
-			val classVectorInputFile = args(7)
-			val scoreClassName = args(8)
-			
-			val clVector = sc.textFile(classVectorInputFile).collect.toArray.flatMap(x => x.split(separator).map(y => y.toDouble))
-
-			val rdd = csv.map(x => {
-				val hIdx = headerIdx_bc.value
-				
-				val arr = x.split(separator_bc.value)
-				val variableLabel = arr(hIdx)
-				val vstring = arr.take(hIdx) ++ arr.drop(hIdx+1)
-				val v = vstring.map(x => x.toDouble)
-
-				(variableLabel, v)
-			})
-
-			mrmr.rowWise(sc, rdd, nfs, classLevels, featuresLevels, clVector, scoreClassName)
-		}
-	}
+    def main(args: Array[String]) {
+        this.run(args)
+    }
+    
+    def run(args: Array[String]) {
+        val sparkConf = new SparkConf().setAppName("Run")
+        val sc        = new SparkContext(sparkConf)
+    
+        val filename       = args(0)
+        val typeWise       = args(1).toString  // either "column-wise" or "row-wise"
+        val nfs            = args(2).toInt
+        val inputFormat    = args(3)
+        val labelIdx       = args(4).toInt
+        val scoreClassName = args(5)
+        
+        println("\nIterative Feature Selection with parameters:")
+        println("-- input data:   " + filename)
+        println("-- input format: " + inputFormat)
+        println("-- data layout:  " + typeWise)
+        println("-- features:     " + nfs)
+        println("-- index label:  " + labelIdx)
+        println("-- score class:  " + scoreClassName)
+        if (typeWise == "row-wise") println("-- input labels: " + args(6))
+    
+        if (inputFormat == "csv" | inputFormat == "tsv") {
+            val separator = if (inputFormat == "tsv") "\t" else ","
+            val clVector  = if (typeWise == "row-wise") sc.textFile(args(6)).first().split(separator).map(_.toDouble) else null
+        
+            val data = sc.textFile(filename).map(x => {
+                val arr = x.split(separator)
+                val label = arr(labelIdx)
+                val v = arr.take(labelIdx) ++ arr.drop(labelIdx + 1)
+                (label, v.map(_.toDouble))
+            })
+            this.start(sc, data, typeWise, nfs, scoreClassName, clVector)
+        }
+    
+        if (inputFormat == "libsvm") {
+            val clVector  = if (typeWise == "row-wise") sc.textFile(args(6)).first().split(",").map(_.toDouble) else null
+            
+            val data = MLUtils.loadLibSVMFile(sc, filename).map(x => {
+                (x.label.toInt.toString, x.features.toArray)
+            })
+            this.start(sc, data, typeWise, nfs, scoreClassName, clVector)
+        }
+    }
+    
+    def start(sc: SparkContext, data: RDD[(String, Array[Double])], typeWise: String, nfs: Int, scoreClassName: String, clVector: Array[Double]) {
+        val ifs = new IterativeFeatureSelection()
+        
+        if (typeWise == "column-wise") this.printResults(ifs.columnWise(sc, data, nfs, scoreClassName))
+        if (typeWise == "row-wise")    this.printResults(ifs.rowWise(sc, data, nfs, scoreClassName, clVector))
+    }
+    
+    def printResults(res: Array[(String, Double)]) {
+        println("\nSelected Features:")
+        println("Order\tName\tScore")
+        for (i <- 0 until res.length) {
+            val idx    = i+1
+            val item   = res(i)
+            val vName  = item._1
+            val vScore = item._2
+            val v      = f"$vScore%1.3f"
+            println(idx + "\t" + vName + "\t" + v)
+        }
+        println()
+    }
 }

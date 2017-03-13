@@ -19,36 +19,45 @@ There is an example dataset in the *data* folder. You need first to load the dat
 
 The code is ready to perform locally, change *--master* option value from ''local[*]'' to ''yarn-cluster'' to run the algorithm in the distributed environment.
 
-#### Traditional encoding
+#### Conventional encoding
+
+##### CSV
 
 ```
-INPUTFILE="data/mrmr.50x20.cw.c0.x1_8.csv" # HDFS path
-TYPE="column-wise"			   # traditional encoding
-NFS="10"				   # number of feature to select
-CLASSLEVELS="0,1"			   # categories of the class
-FEATURELEVELS="0,1"			   # categories of all the features
-SEP=","					   # character separator of the file
-CLASSIDX="0"				   # index (first is 0) of the column vector
+INPUTFILE="data/mrmr.50x20.cw.c0.x1_8.csv"                   # HDFS path
+TYPE="column-wise"                                           # traditional encoding
+NFS="5"                                                      # number of feature to select
+FORMAT="csv"                                                 # CSV input format
+LABELIDX="0"                                                 # index of the label
+SCORECLASS="creggian.mrmr.feature.common.InstanceWiseMRMR"   # score class name
 
-MRMRINPUT="$INPUTFILE $TYPE $NFS $CLASSLEVELS $FEATURELEVELS $SEP $CLASSIDX"
+MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS"
 
-spark-submit --class creggian.mrmr.Run --master local[*] --num-executors 1 --executor-memory 4G --driver-memory 4G mrmr_2.10-1.0.jar $MRMRINPUT
+$SPARK_HOME/bin/spark-submit \
+    --class creggian.mrmr.Run \
+    --master local[*] \
+    --num-executors 1 \
+    --executor-memory 4G \
+    --driver-memory 4G \
+    target/scala-2.10/mrmr_2.10-1.0.jar \
+    $MRMRINPUT \
+    2> /dev/null
 ```
 
 #### Alternative encoding
 
 ```
 INPUTFILE="data/mrmr.50x20.rw.x0_7.csv" # HDFS path
-TYPE="row-wise"				# alternative encoding
-NFS="10"				# number of feature to select
+TYPE="row-wise"                                 # alternative encoding
+NFS="10"                                        # number of feature to select
 CLASSLEVELS="0,1"			# categories of the class
 FEATURELEVELS="0,1"			# categories of all the features
 SEP=","					# character separator of the file
-NAMEIDX="0"				# index (first is 0) of the column names				
+LABELIDX="0"				# index (first is 0) of the column names				
 CLASSVECTOR="mrmr.50x20.rw.x0_7.class.csv"	# class vector file
 SCORECLASS="creggian.mrmr.feature.common.Score" # score function
 
-MRMRINPUT="$INPUTFILE $TYPE $NFS $CLASSLEVELS $FEATURELEVELS $SEP $CLASSIDX $CLASSVECTOR $SCORECLASS $CLASSVECTOR $SCORECLASS"
+MRMRINPUT="$INPUTFILE $TYPE $NFS $CLASSLEVELS $FEATURELEVELS $SEP $LABELIDX $CLASSVECTOR $SCORECLASS $CLASSVECTOR $SCORECLASS"
 
 spark-submit --class creggian.mrmr.Run --master local[*] --num-executors 1 --executor-memory 4G --driver-memory 4G mrmr_2.10-1.0.jar $MRMRINPUT
 ```
