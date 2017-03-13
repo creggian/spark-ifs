@@ -7,7 +7,6 @@ This is a scala library for Apache Spark for feature selection algorithms in Map
 * **data**: there are two example datasets to test the library locally or in the cluster.
   * ''mrmr.50x20.cw.c0.x1_8.csv'' has 50 rows and 21 columns. Data is encoded with the traditional layout. The first column, x0, which represent the class is calculated with the following formula: ( ((x1 & x2) | (x3 & x4)) & ((x5 & x6) | (x7 & x8)) ), as similarly done in the CorrAL dataset.
   * ''mrmr.50x20.rw.x0_7.csv'' has 50 rows and 21 columns, where the first column is the column name (unique among all the other names). ''mrmr.50x20.rw.x0_7.class.csv'' provides the class vector.
-* **project** contains the class files. It is automatically generated during the compilation step.
 * **src** includes all the sources.
 * **target** includes, among other file, the *mrmr_2.10-1.0.jar* located in ''target/scala-2.10'' folder. It is the executable built using scala 2.10 and apache spark 1.5.0.
 * **simple.sbt** describes the built settings.
@@ -50,7 +49,7 @@ $SPARK_HOME/bin/spark-submit \
 INPUTFILE="data/mrmr.50x20.cw.c0.x1_8.libsvm"                # input path
 TYPE="column-wise"                                           # traditional encoding
 NFS="5"                                                      # number of feature to select
-FORMAT="libsvm"                                              # CSV input format
+FORMAT="libsvm"                                              # LibSVM input format
 LABELIDX="0"                                                 # index of the label
 SCORECLASS="creggian.mrmr.feature.common.InstanceWiseMRMR"   # score class name
 
@@ -100,7 +99,7 @@ $SPARK_HOME/bin/spark-submit \
 INPUTFILE="data/mrmr.50x20.rw.x0_7.libsvm"                   # input path
 TYPE="row-wise"                                              # alternative encoding
 NFS="5"                                                      # number of feature to select
-FORMAT="libsvm"                                              # CSV input format
+FORMAT="libsvm"                                              # LibSVM input format
 LABELIDX="0"                                                 # index of the label
 SCORECLASS="creggian.mrmr.feature.common.FeatureWiseMRMR"    # score class name
 LABELFILE="data/mrmr.50x20.rw.x0_7.class.csv"                # label path

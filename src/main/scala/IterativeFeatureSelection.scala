@@ -2,6 +2,8 @@ package creggian.mrmr.lib
 
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
+
 import scala.collection.JavaConversions._
 import scala.reflect.runtime._
 import scala.tools.reflect.ToolBox
@@ -11,8 +13,9 @@ import creggian.mrmr.feature.common.InstanceWiseAbstractScore
 
 class IterativeFeatureSelection {
     
-    def columnWise(sc: SparkContext, rdd: RDD[(String, Array[Double])], nfs: Int, scoreClassName: String): Array[(String, Double)] = {
-    
+    def columnWise(sc: SparkContext, data: RDD[(String, Array[Double])], nfs: Int, scoreClassName: String): Array[(String, Double)] = {
+        val rdd = data.sortByKey(numPartitions = 500).persist(StorageLevel.MEMORY_AND_DISK_SER)
+        
         val classLevels     = rdd.map(x => x._1.toDouble).distinct().collect()
         val featuresLevels  = rdd.map(x => x._2.distinct).reduce((x, y) => (x ++ y).distinct)
         
@@ -182,7 +185,9 @@ class IterativeFeatureSelection {
         selectedIdx.map(_.toString).zip(selectedIdxScore)
     }
     
-    def rowWise(sc: SparkContext, rdd: RDD[(String, Array[Double])], nfs: Int, scoreClassName: String, classVector: Array[Double]): Array[(String, Double)] = {
+    def rowWise(sc: SparkContext, data: RDD[(String, Array[Double])], nfs: Int, scoreClassName: String, classVector: Array[Double]): Array[(String, Double)] = {
+        val rdd = data.sortByKey(numPartitions = 500).persist(StorageLevel.MEMORY_AND_DISK_SER)
+        
         val classLevels     = classVector.distinct
         val featuresLevels  = rdd.map(x => x._2.distinct).reduce((x, y) => (x ++ y).distinct)
         
