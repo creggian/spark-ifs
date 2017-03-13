@@ -24,7 +24,7 @@ The code is ready to perform locally, change *--master* option value from ''loca
 ##### CSV
 
 ```
-INPUTFILE="data/mrmr.50x20.cw.c0.x1_8.csv"                   # HDFS path
+INPUTFILE="data/mrmr.50x20.cw.c0.x1_8.csv"                   # input path
 TYPE="column-wise"                                           # traditional encoding
 NFS="5"                                                      # number of feature to select
 FORMAT="csv"                                                 # CSV input format
@@ -44,20 +44,76 @@ $SPARK_HOME/bin/spark-submit \
     2> /dev/null
 ```
 
-#### Alternative encoding
+##### LibSVM
 
 ```
-INPUTFILE="data/mrmr.50x20.rw.x0_7.csv" # HDFS path
-TYPE="row-wise"                                 # alternative encoding
-NFS="10"                                        # number of feature to select
-CLASSLEVELS="0,1"			# categories of the class
-FEATURELEVELS="0,1"			# categories of all the features
-SEP=","					# character separator of the file
-LABELIDX="0"				# index (first is 0) of the column names				
-CLASSVECTOR="mrmr.50x20.rw.x0_7.class.csv"	# class vector file
-SCORECLASS="creggian.mrmr.feature.common.Score" # score function
+INPUTFILE="data/mrmr.50x20.cw.c0.x1_8.libsvm"                # input path
+TYPE="column-wise"                                           # traditional encoding
+NFS="5"                                                      # number of feature to select
+FORMAT="libsvm"                                              # CSV input format
+LABELIDX="0"                                                 # index of the label
+SCORECLASS="creggian.mrmr.feature.common.InstanceWiseMRMR"   # score class name
 
-MRMRINPUT="$INPUTFILE $TYPE $NFS $CLASSLEVELS $FEATURELEVELS $SEP $LABELIDX $CLASSVECTOR $SCORECLASS $CLASSVECTOR $SCORECLASS"
+MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS"
 
-spark-submit --class creggian.mrmr.Run --master local[*] --num-executors 1 --executor-memory 4G --driver-memory 4G mrmr_2.10-1.0.jar $MRMRINPUT
+$SPARK_HOME/bin/spark-submit \
+    --class creggian.mrmr.Run \
+    --master local[*] \
+    --num-executors 1 \
+    --executor-memory 4G \
+    --driver-memory 4G \
+    target/scala-2.10/mrmr_2.10-1.0.jar \
+    $MRMRINPUT \
+    2> /dev/null
+```
+
+
+#### Alternative encoding
+
+##### CSV
+
+```
+INPUTFILE="data/mrmr.50x20.rw.x0_7.csv"                      # input path
+TYPE="row-wise"                                              # alternative encoding
+NFS="5"                                                      # number of feature to select
+FORMAT="csv"                                                 # CSV input format
+LABELIDX="0"                                                 # index of the label
+SCORECLASS="creggian.mrmr.feature.common.FeatureWiseMRMR"    # score class name
+LABELFILE="data/mrmr.50x20.rw.x0_7.class.csv"                # label path
+
+MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS $LABELFILE"
+
+$SPARK_HOME/bin/spark-submit \
+    --class creggian.mrmr.Run \
+    --master local[*] \
+    --num-executors 1 \
+    --executor-memory 4G \
+    --driver-memory 4G \
+    target/scala-2.10/mrmr_2.10-1.0.jar \
+    $MRMRINPUT \
+    2> /dev/null
+```
+
+##### LibSVM
+
+```
+INPUTFILE="data/mrmr.50x20.rw.x0_7.libsvm"                   # input path
+TYPE="row-wise"                                              # alternative encoding
+NFS="5"                                                      # number of feature to select
+FORMAT="libsvm"                                              # CSV input format
+LABELIDX="0"                                                 # index of the label
+SCORECLASS="creggian.mrmr.feature.common.FeatureWiseMRMR"    # score class name
+LABELFILE="data/mrmr.50x20.rw.x0_7.class.csv"                # label path
+
+MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS $LABELFILE"
+
+$SPARK_HOME/bin/spark-submit \
+    --class creggian.mrmr.Run \
+    --master local[*] \
+    --num-executors 1 \
+    --executor-memory 4G \
+    --driver-memory 4G \
+    target/scala-2.10/mrmr_2.10-1.0.jar \
+    $MRMRINPUT \
+    2> /dev/null
 ```
