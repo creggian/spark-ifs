@@ -19,7 +19,7 @@ There is an example dataset in the *data* folder. You need first to load the dat
 
 The code is ready to perform locally, change *--master* option value from ''local[*]'' to ''yarn-cluster'' to run the algorithm in the distributed environment.
 
-#### Conventional encoding
+#### Conventional encoding AA
 
 ##### CSV
 
