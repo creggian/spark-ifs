@@ -18,7 +18,7 @@ package creggian.mrmr.feature.common
 
 class InstanceWiseMRMR extends InstanceWiseAbstractScore {
     
-    private def mrmrMutualInformation(matWithClass: Array[Array[Long]], matWithFeatures: Array[Array[Array[Long]]], selectedVariablesIdx: Array[Int]): Double = {
+    private def mrmrMutualInformation(matWithClass: Array[Array[Long]], matWithFeatures: Array[Array[Array[Long]]], selectedVariablesIdx: Array[Long]): Double = {
         val mi = new MutualInformation()
         
         val mrmrClass = mi.computeMI(matWithClass)
@@ -35,7 +35,7 @@ class InstanceWiseMRMR extends InstanceWiseAbstractScore {
         mrmrClass - (coefficient * mrmrFeatures)
     }
     
-    def getResult(matWithClass: Array[Array[Long]], matWithFeatures: Array[Array[Array[Long]]], selectedVariablesIdx: Array[Int], variableLevels: Array[Double], classLevels: Array[Double]): Double = {
+    def getResult(matWithClass: Array[Array[Long]], matWithFeatures: Array[Array[Array[Long]]], selectedVariablesIdx: Array[Long], variableLevels: Array[Double], classLevels: Array[Double]): Double = {
         this.mrmrMutualInformation(matWithClass, matWithFeatures, selectedVariablesIdx)
     }
 }

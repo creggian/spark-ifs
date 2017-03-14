@@ -2,22 +2,26 @@ package creggian.mrmr.lib
 
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.linalg.{DenseVector, SparseVector, Vector}
+import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.JavaConversions._
 import scala.reflect.runtime._
 import scala.tools.reflect.ToolBox
 
+import creggian.collection.mutable.SparseIndexArray
 import creggian.mrmr.feature.common.FeatureWiseAbstractScore
 import creggian.mrmr.feature.common.InstanceWiseAbstractScore
 
 class IterativeFeatureSelection {
     
-    def columnWise(sc: SparkContext, data: RDD[(String, Array[Double])], nfs: Int, scoreClassName: String): Array[(String, Double)] = {
-        val rdd = data.sortByKey(numPartitions = 500).persist(StorageLevel.MEMORY_AND_DISK_SER)
-        
-        val classLevels     = rdd.map(x => x._1.toDouble).distinct().collect()
-        val featuresLevels  = rdd.map(x => x._2.distinct).reduce((x, y) => (x ++ y).distinct)
+    def columnWise(sc: SparkContext, data: RDD[(LabeledPoint)], nfs: Int, scoreClassName: String): Array[(String, Double)] = {
+    
+        val classLevels    = data.map(x => x.label).distinct().collect()
+        val featuresLevels = data.map({
+            case (LabeledPoint(_, v: SparseVector)) => v.values.distinct
+            case (LabeledPoint(_, v: DenseVector))  => v.values.distinct
+        }).reduce((x, y) => (x ++ y).distinct)
         
         val classLevels_bc    = sc.broadcast(classLevels)
         val featuresLevels_bc = sc.broadcast(featuresLevels)
@@ -26,125 +30,72 @@ class IterativeFeatureSelection {
         val tb = universe.runtimeMirror(getClass.getClassLoader).mkToolBox()
         val score = tb.eval(tb.parse("new " + scoreClassName + "()")).asInstanceOf[InstanceWiseAbstractScore]
         
-        val nCols = rdd.map(_._2).take(1)(0).length
+        val nCols = data.first.features.size
         
-        var candidateIdx = (0 until nCols).toArray
-        var selectedIdx = Array[Int]()
+        val candidateIdx = new SparseIndexArray(nCols, dense=true)
+        val selectedIdx = new SparseIndexArray(nCols, dense=false)
         var selectedIdxScore = Array[Double]()
         
-        for (i <- 1 to nfs) {
+        for (_ <- 1 to nfs) {
             
             val candidateIdx_bc = sc.broadcast(candidateIdx)
             val selectedIdx_bc = sc.broadcast(selectedIdx)
             
-            
-            val step1Class = rdd.mapPartitions(iter => {
+            val contingencyTables = data.mapPartitions(iter => {
                 val caIdx = candidateIdx_bc.value
                 val seIdx = selectedIdx_bc.value
                 val cl = classLevels_bc.value
                 val fl = featuresLevels_bc.value
-                val cln = cl.size
-                val fln = fl.size
+                val cln = cl.length
+                val fln = fl.length
                 
-                var matWithClassMap = scala.collection.mutable.Map[(Int, Int), Array[Array[Long]]]()
-                
-                while (iter.hasNext) {
-                    val arr = iter.next
-                    val classValue = arr._1.toDouble
-                    val arrCandidate = caIdx.map(x => arr._2(x))
-                    val arrSelected = seIdx.map(x => arr._2(x))
-                    
-                    // to optimize see http://stackoverflow.com/questions/9137644/how-to-get-the-element-index-when-mapping-an-array-in-scala
-                    
-                    val arrCandidateWithIndex = arrCandidate.zip(caIdx)
-                    for (j <- 0 until arrCandidateWithIndex.size) {
-                        val tuple = arrCandidateWithIndex(j)
-                        val (value, idx) = tuple
-                        val matWithClassMapKey = (idx, -1)  // -1 represent the class idx, it is used as placeholder
-                        
-                        val classValueIdxMat = cl.indexWhere(_ == classValue)
-                        val valueIdxMat = fl.indexWhere(_ == value)
-                        
-                        var matWithClass = Array.fill[Long](cln, fln)(0)
-                        if (matWithClassMap.contains(matWithClassMapKey)) {
-                            matWithClass = matWithClassMap(matWithClassMapKey)
-                        }
-                        
-                        matWithClass(classValueIdxMat)(valueIdxMat) = matWithClass(classValueIdxMat)(valueIdxMat) + 1
-                        matWithClassMap(matWithClassMapKey) = matWithClass
-                    }
-                }
-                
-                matWithClassMap.toList.iterator
-            })
-            
-            
-            val step1Features = rdd.mapPartitions(iter => {
-                val caIdx = candidateIdx_bc.value
-                val seIdx = selectedIdx_bc.value
-                val cl = classLevels_bc.value
-                val fl = featuresLevels_bc.value
-                val fln = fl.size
-                
-                var matWithFeaturesMap = scala.collection.mutable.Map[(Int, Int), Array[Array[Long]]]()
+                val matWithClassMap    = scala.collection.mutable.Map[(Long, Long), Array[Array[Long]]]()
+                val matWithFeaturesMap = scala.collection.mutable.Map[(Long, Long), Array[Array[Long]]]()
                 
                 while (iter.hasNext) {
-                    val arr = iter.next
-                    val arrCandidate = caIdx.map(x => arr._2(x))
-                    val arrSelected = seIdx.map(x => arr._2(x))
+                    val lp = iter.next
+                    val label = lp.label
+                    val features = lp.features
                     
-                    // to optimize see http://stackoverflow.com/questions/9137644/how-to-get-the-element-index-when-mapping-an-array-in-scala
-                    
-                    val arrCandidateWithIndex = arrCandidate.zip(caIdx)
-                    val arrSelectedWithIndex = arrSelected.zip(seIdx)
-                    for (j <- 0 until arrCandidateWithIndex.size) {
-                        val tuple = arrCandidateWithIndex(j)
-                        val (value, idx) = tuple
-                        for (k <- 0 until arrSelectedWithIndex.size) {
-                            val tupleSelected = arrSelectedWithIndex(k)
-                            val (valueSelected, idxSelected) = tupleSelected
-                            val matWithFeaturesMapKey = (idx, idxSelected)
-                            
-                            val valueSelectedIdxMat = fl.indexWhere(_ == valueSelected)
+                    var fcIdx = 0L
+                    while (fcIdx < caIdx.getSize) {
+                        if (caIdx.contains(fcIdx)) {
+                            val value = features(fcIdx.toInt)
+                            val matWithClassMapKey = (fcIdx, -1L)  // -1L represent the class idx, it is used as placeholder
+    
+                            val classValueIdxMat = cl.indexWhere(_ == label)
                             val valueIdxMat = fl.indexWhere(_ == value)
-                            
-                            var matWithFeatures = Array.fill[Long](fln, fln)(0)
-                            if (matWithFeaturesMap.contains(matWithFeaturesMapKey)) {
-                                matWithFeatures = matWithFeaturesMap(matWithFeaturesMapKey)
+    
+                            val matWithClass = if (matWithClassMap.contains(matWithClassMapKey)) matWithClassMap(matWithClassMapKey) else Array.fill[Long](cln, fln)(0)
+    
+                            matWithClass(classValueIdxMat)(valueIdxMat) = matWithClass(classValueIdxMat)(valueIdxMat) + 1
+                            matWithClassMap(matWithClassMapKey) = matWithClass
+    
+                            for (fsIdx <- seIdx.getAdded) {
+                                val valueSelected = features(fsIdx.toInt)
+                                val matWithFeaturesMapKey = (fcIdx, fsIdx)
+        
+                                val valueSelectedIdxMat = fl.indexWhere(_ == valueSelected)
+                                val valueIdxMat = fl.indexWhere(_ == value)
+        
+                                val matWithFeatures = if (matWithFeaturesMap.contains(matWithFeaturesMapKey)) matWithFeaturesMap(matWithFeaturesMapKey) else Array.fill[Long](fln, fln)(0)
+        
+                                matWithFeatures(valueSelectedIdxMat)(valueIdxMat) = matWithFeatures(valueSelectedIdxMat)(valueIdxMat) + 1
+                                matWithFeaturesMap(matWithFeaturesMapKey) = matWithFeatures
                             }
-                            
-                            matWithFeatures(valueSelectedIdxMat)(valueIdxMat) = matWithFeatures(valueSelectedIdxMat)(valueIdxMat) + 1
-                            matWithFeaturesMap(matWithFeaturesMapKey) = matWithFeatures
                         }
+                        fcIdx += 1
                     }
                 }
                 
-                matWithFeaturesMap.toList.iterator
+                (matWithClassMap.toList ++ matWithFeaturesMap.toList).iterator
             })
             
+            val contingencyTablesReduce = contingencyTables.reduceByKey((x, y) => x.zip(y).map(x => x._1.zip(x._2).map(y => y._1 + y._2)))
             
-            val step1ClassReduce    = step1Class   .reduceByKey((x, y) => x.zip(y).map(x => x._1.zip(x._2).map(y => y._1 + y._2)))
-            val step1FeaturesReduce = step1Features.reduceByKey((x, y) => x.zip(y).map(x => x._1.zip(x._2).map(y => y._1 + y._2)))
-            
-            val step1ClassReduceMap = step1ClassReduce.map(x => {
-                // ((idx, clIdx), matWithClass) = x
-                val idx = x._1._1
-                val clIdx = x._1._2
-                val matWithClass = x._2
-                
-                (idx, (clIdx, matWithClass))
-            })
-            
-            val step1FeaturesReduceMap = step1FeaturesReduce.map(x => {
-                // ((idx, idxSelected), matWithFeatures) = x
-                val idx = x._1._1
-                val idxSelected = x._1._2
-                val matWithFeatures = x._2
-                
-                (idx, (idxSelected, matWithFeatures))
-            })
-            
-            val step2 = step1ClassReduceMap.union(step1FeaturesReduceMap).groupByKey.map(entry => {
+            val ct = contingencyTablesReduce.map(x => (x._1._1, (x._1._2, x._2))) // ((idx, clIdx|idxSelected), contingencyTable) => (idx, (clIdx|idxSelected, contingencyTable))
+    
+            val step2 = ct.groupByKey.map(entry => {
                 val (key, buffer) = entry
                 
                 val seIdx = selectedIdx_bc.value
@@ -155,20 +106,17 @@ class IterativeFeatureSelection {
                 var matWithFeatures = Array[Array[Array[Long]]]()
                 
                 val iter = buffer.iterator
-                while (iter.hasNext()) {
+                while (iter.hasNext) {
                     val tuple = iter.next
                     val (idx, mat) = tuple
                     
-                    if (idx == -1) {
-                        matWithClass = mat
-                    } else {
-                        matWithFeatures = matWithFeatures ++ Array(mat)
-                    }
+                    if (idx == -1L) matWithClass = mat
+                    else matWithFeatures = matWithFeatures ++ Array(mat)
                 }
     
-                val mrmr_i = score.getResult(matWithClass, matWithFeatures, seIdx, fl, cl)
+                val candidateScore = score.getResult(matWithClass, matWithFeatures, seIdx.getAdded.toArray, fl, cl)
                 
-                (key, mrmr_i)
+                (key, candidateScore)
             })
             
             
@@ -177,12 +125,12 @@ class IterativeFeatureSelection {
             // Example of step3 output (key, score)
             //   (2818,0.8462824341015066)
             
-            selectedIdx = selectedIdx ++ Array(step3(0)._1)
+            selectedIdx.add(step3(0)._1)
             selectedIdxScore = selectedIdxScore ++ Array(step3(0)._2)
-            candidateIdx = candidateIdx.diff(Array(step3(0)._1))
+            candidateIdx.remove(step3(0)._1)
         }
-        
-        selectedIdx.map(_.toString).zip(selectedIdxScore)
+    
+        selectedIdx.getAdded.toArray.map(_.toString).zip(selectedIdxScore)
     }
     
     def rowWise(sc: SparkContext, data: RDD[(String, Array[Double])], nfs: Int, scoreClassName: String, classVector: Array[Double]): Array[(String, Double)] = {
@@ -203,7 +151,7 @@ class IterativeFeatureSelection {
         val tb = universe.runtimeMirror(getClass.getClassLoader).mkToolBox()
         val score = tb.eval(tb.parse("new " + scoreClassName + "()")).asInstanceOf[FeatureWiseAbstractScore]
         
-        for (ii <- 1 to nfs) {
+        for (i <- 1 to nfs) {
             
             val selectedVariableName_bc = sc.broadcast(selectedVariableName)
             val selectedVariable_bc = sc.broadcast(selectedVariable)

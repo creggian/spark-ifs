@@ -1,8 +1,11 @@
 package creggian.mrmr
 
 import org.apache.spark._
-import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.util.MLUtils
+import org.apache.spark.mllib.linalg.DenseVector
+import org.apache.spark.mllib.regression.LabeledPoint
+import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
 
 import creggian.mrmr.lib.IterativeFeatureSelection
 
@@ -19,11 +22,14 @@ import creggian.mrmr.lib.IterativeFeatureSelection
 
 object Run {
     def main(args: Array[String]) {
-        this.run(args)
+        val ecl = new EntryCommandLine()
+        ecl.run(args)
     }
+}
     
+class EntryCommandLine {
     def run(args: Array[String]) {
-        val sparkConf = new SparkConf().setAppName("Run")
+        val sparkConf = new SparkConf().setAppName("Iterative Feature Selection")
         val sc        = new SparkContext(sparkConf)
     
         val filename       = args(0)
@@ -32,15 +38,18 @@ object Run {
         val inputFormat    = args(3)
         val labelIdx       = args(4).toInt
         val scoreClassName = args(5)
+    
+        val nPartition     = sc.getConf.getInt("spark.default.parallelism", 50)
         
         println("\nIterative Feature Selection with parameters:")
-        println("-- input data:   " + filename)
-        println("-- input format: " + inputFormat)
-        println("-- data layout:  " + typeWise)
-        println("-- features:     " + nfs)
-        println("-- index label:  " + labelIdx)
-        println("-- score class:  " + scoreClassName)
-        if (typeWise == "row-wise") println("-- input labels: " + args(6))
+        println("-- input data:    " + filename)
+        println("-- input format:  " + inputFormat)
+        println("-- data layout:   " + typeWise)
+        println("-- features:      " + nfs)
+        println("-- index label:   " + labelIdx)
+        println("-- score class:   " + scoreClassName)
+        if (typeWise == "row-wise") println("-- input labels:  " + args(6))
+        println("-- num partition: " + nPartition)
     
         if (inputFormat == "csv" | inputFormat == "tsv") {
             val separator = if (inputFormat == "tsv") "\t" else ","
@@ -48,28 +57,32 @@ object Run {
         
             val data = sc.textFile(filename).map(x => {
                 val arr = x.split(separator)
-                val label = arr(labelIdx)
+                val label = arr(labelIdx).toDouble
                 val v = arr.take(labelIdx) ++ arr.drop(labelIdx + 1)
-                (label, v.map(_.toDouble))
+                val dv = new DenseVector(v.map(_.toDouble))
+                new LabeledPoint(label, dv.compressed)
             })
-            this.start(sc, data, typeWise, nfs, scoreClassName, clVector)
+    
+            val rdd = data.repartition(numPartitions = nPartition).persist(StorageLevel.MEMORY_AND_DISK_SER)
+    
+            this.start(sc, rdd, typeWise, nfs, scoreClassName, clVector)
         }
     
         if (inputFormat == "libsvm") {
-            val clVector  = if (typeWise == "row-wise") sc.textFile(args(6)).first().split(",").map(_.toDouble) else null
+            val data = MLUtils.loadLibSVMFile(sc, filename).map(lp => new LabeledPoint(lp.label, lp.features.compressed))
             
-            val data = MLUtils.loadLibSVMFile(sc, filename).map(x => {
-                (x.label.toInt.toString, x.features.toArray)
-            })
-            this.start(sc, data, typeWise, nfs, scoreClassName, clVector)
+            val rdd = data.repartition(numPartitions = nPartition).persist(StorageLevel.MEMORY_AND_DISK_SER)
+            
+            val clVector  = if (typeWise == "row-wise") sc.textFile(args(6)).first().split(",").map(_.toDouble) else null
+            this.start(sc, rdd, typeWise, nfs, scoreClassName, clVector)
         }
     }
     
-    def start(sc: SparkContext, data: RDD[(String, Array[Double])], typeWise: String, nfs: Int, scoreClassName: String, clVector: Array[Double]) {
+    def start(sc: SparkContext, data: RDD[(LabeledPoint)], typeWise: String, nfs: Int, scoreClassName: String, clVector: Array[Double]) {
         val ifs = new IterativeFeatureSelection()
         
         if (typeWise == "column-wise") this.printResults(ifs.columnWise(sc, data, nfs, scoreClassName))
-        if (typeWise == "row-wise")    this.printResults(ifs.rowWise(sc, data, nfs, scoreClassName, clVector))
+        if (typeWise == "row-wise")    println("\n!!! Operation not yet implemented !!!\n") // this.printResults(ifs.rowWise(sc, data, nfs, scoreClassName, clVector))
     }
     
     def printResults(res: Array[(String, Double)]) {
