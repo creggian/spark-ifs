@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package creggian.mrmr.feature.common
+package creggian.ml.feature.algorithm
+
+import creggian.ml.feature.MutualInformation
 
 class InstanceWiseMRMR extends InstanceWiseAbstractScore {
     
@@ -29,13 +31,17 @@ class InstanceWiseMRMR extends InstanceWiseAbstractScore {
         }
     
         var coefficient = 1.0
-        if (selectedVariablesIdx.size > 1) {
-            coefficient = 1.0 / selectedVariablesIdx.size.toDouble
+        if (selectedVariablesIdx.length > 1) {
+            coefficient = 1.0 / selectedVariablesIdx.length.toDouble
         }
         mrmrClass - (coefficient * mrmrFeatures)
     }
     
-    def getResult(matWithClass: Array[Array[Long]], matWithFeatures: Array[Array[Array[Long]]], selectedVariablesIdx: Array[Long], variableLevels: Array[Double], classLevels: Array[Double]): Double = {
-        this.mrmrMutualInformation(matWithClass, matWithFeatures, selectedVariablesIdx)
+    def getResult(matWithClass: Array[Array[Long]], matWithFeatures: Array[Array[Array[Long]]], selectedVariablesIdx: Array[Long], variableLevels: Array[Double], classLevels: Array[Double], i: Int, nfs: Int): Double = {
+        mrmrMutualInformation(matWithClass, matWithFeatures, selectedVariablesIdx)
+    }
+    
+    override def selectTop(i: Int, nfs: Int): Int = {
+        1
     }
 }

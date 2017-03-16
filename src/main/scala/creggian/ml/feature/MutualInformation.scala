@@ -1,4 +1,4 @@
-package creggian.mrmr.feature.common
+package creggian.ml.feature
 
 class MutualInformation {
     
@@ -8,11 +8,11 @@ class MutualInformation {
         val colSum = matrix.transpose.map(_.sum)
         
         var mi = 0.0
-        for (j <- 0 until matrix.size) {
+        for (j <- matrix.indices) {
             val x = matrix(j)
             // row
             val rowSum = x.sum
-            for (i <- 0 until x.size) {
+            for (i <- x.indices) {
                 val e = x(i) // element
                 
                 val pxy = e.toDouble / tot
@@ -39,8 +39,8 @@ class MutualInformation {
     def mutualInformationDiscrete(a: Array[Double], b: Array[Double], aLevels: Array[Double], bLevels: Array[Double]): Double = {
         
         // MI with the class
-        var mat = Array.fill[Long](bLevels.size, aLevels.size)(0)
-        for (i <- 0 until b.size) {
+        val mat = Array.fill[Long](bLevels.length, aLevels.length)(0)
+        for (i <- b.indices) {
             val aValue = a(i)
             // real value
             val bValue = b(i) // real value

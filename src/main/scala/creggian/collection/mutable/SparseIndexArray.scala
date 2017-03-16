@@ -1,7 +1,6 @@
 package creggian.collection.mutable
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.control.Exception
 
 class SparseIndexArray(size: Long, dense: Boolean = true) extends Serializable {
     

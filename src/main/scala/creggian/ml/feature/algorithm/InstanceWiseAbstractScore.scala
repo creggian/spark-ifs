@@ -1,4 +1,4 @@
-package creggian.mrmr.feature.common
+package creggian.ml.feature.algorithm
 
 abstract class InstanceWiseAbstractScore extends Serializable {
     
@@ -6,6 +6,16 @@ abstract class InstanceWiseAbstractScore extends Serializable {
                   matWithFeatures: Array[Array[Array[Long]]],
                   selectedVariablesArray: Array[Long],
                   variableLevels: Array[Double],
-                  classLevels: Array[Double]): Double
+                  classLevels: Array[Double],
+                  i: Int,
+                  nfs: Int): Double
+    
+    def selectTop(i: Int, nfs: Int): Int = {
+        1
+    }
+    
+    def maxIterations(nfs: Int): Int = {
+        nfs
+    }
     
 }

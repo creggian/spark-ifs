@@ -1,4 +1,4 @@
-name := "mRMR"
+name := "spark-ifs"
 
 version := "1.0"
 

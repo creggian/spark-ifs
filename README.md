@@ -28,12 +28,12 @@ TYPE="column-wise"                                           # traditional encod
 NFS="5"                                                      # number of feature to select
 FORMAT="csv"                                                 # CSV input format
 LABELIDX="0"                                                 # index of the label
-SCORECLASS="creggian.mrmr.feature.common.InstanceWiseMRMR"   # score class name
+SCORECLASS="creggian.ml.feature.algorithm.InstanceWiseMRMR"  # score class name
 
 MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS"
 
 $SPARK_HOME/bin/spark-submit \
-    --class creggian.mrmr.Run \
+    --class creggian.examples.ifs.CommandLine \
     --master local[*] \
     --num-executors 1 \
     --executor-memory 4G \
@@ -51,12 +51,12 @@ TYPE="column-wise"                                           # traditional encod
 NFS="5"                                                      # number of feature to select
 FORMAT="libsvm"                                              # LibSVM input format
 LABELIDX="0"                                                 # index of the label
-SCORECLASS="creggian.mrmr.feature.common.InstanceWiseMRMR"   # score class name
+SCORECLASS="creggian.ml.feature.algorithm.InstanceWiseMRMR"  # score class name
 
 MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS"
 
 $SPARK_HOME/bin/spark-submit \
-    --class creggian.mrmr.Run \
+    --class creggian.examples.ifs.CommandLine \
     --master local[*] \
     --num-executors 1 \
     --executor-memory 4G \
@@ -78,13 +78,13 @@ TYPE="row-wise"                                              # alternative encod
 NFS="5"                                                      # number of feature to select
 FORMAT="csv"                                                 # CSV input format
 LABELIDX="0"                                                 # index of the label
-SCORECLASS="creggian.mrmr.feature.common.FeatureWiseMRMR"    # score class name
+SCORECLASS="creggian.ml.feature.algorithm.FeatureWiseMRMR"   # score class name
 LABELFILE="data/mrmr.50x20.rw.x0_7.class.csv"                # label path
 
 MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS $LABELFILE"
 
 $SPARK_HOME/bin/spark-submit \
-    --class creggian.mrmr.Run \
+    --class creggian.examples.ifs.CommandLine \
     --master local[*] \
     --num-executors 1 \
     --executor-memory 4G \
@@ -102,13 +102,13 @@ TYPE="row-wise"                                              # alternative encod
 NFS="5"                                                      # number of feature to select
 FORMAT="libsvm"                                              # LibSVM input format
 LABELIDX="0"                                                 # index of the label
-SCORECLASS="creggian.mrmr.feature.common.FeatureWiseMRMR"    # score class name
+SCORECLASS="creggian.ml.feature.algorithm.FeatureWiseMRMR"   # score class name
 LABELFILE="data/mrmr.50x20.rw.x0_7.class.csv"                # label path
 
 MRMRINPUT="$INPUTFILE $TYPE $NFS $FORMAT $LABELIDX $SCORECLASS $LABELFILE"
 
 $SPARK_HOME/bin/spark-submit \
-    --class creggian.mrmr.Run \
+    --class creggian.examples.ifs.CommandLine \
     --master local[*] \
     --num-executors 1 \
     --executor-memory 4G \
