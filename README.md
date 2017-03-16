@@ -38,7 +38,7 @@ $SPARK_HOME/bin/spark-submit \
     --num-executors 1 \
     --executor-memory 4G \
     --driver-memory 4G \
-    target/scala-2.10/mrmr_2.10-1.0.jar \
+    target/scala-2.10/spark-ifs_2.10-1.0.jar \
     $MRMRINPUT \
     2> /dev/null
 ```
@@ -62,7 +62,7 @@ $SPARK_HOME/bin/spark-submit \
     --executor-memory 4G \
     --driver-memory 4G \
     --conf "spark.default.parallelism=10" \
-    target/scala-2.10/mrmr_2.10-1.0.jar \
+    target/scala-2.10/spark-ifs_2.10-1.0.jar \
     $MRMRINPUT \
     2> errors.log
 ```
@@ -89,7 +89,7 @@ $SPARK_HOME/bin/spark-submit \
     --num-executors 1 \
     --executor-memory 4G \
     --driver-memory 4G \
-    target/scala-2.10/mrmr_2.10-1.0.jar \
+    target/scala-2.10/spark-ifs_2.10-1.0.jar \
     $MRMRINPUT \
     2> /dev/null
 ```
@@ -113,7 +113,7 @@ $SPARK_HOME/bin/spark-submit \
     --num-executors 1 \
     --executor-memory 4G \
     --driver-memory 4G \
-    target/scala-2.10/mrmr_2.10-1.0.jar \
+    target/scala-2.10/spark-ifs_2.10-1.0.jar \
     $MRMRINPUT \
     2> /dev/null
 ```
