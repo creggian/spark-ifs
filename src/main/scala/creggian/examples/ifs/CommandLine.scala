@@ -49,26 +49,40 @@ object CommandLine {
             })
             
             val rdd = data.repartition(numPartitions = nPartition).persist(StorageLevel.MEMORY_AND_DISK_SER)
-            
             val clVector = if (typeWise == "row-wise") Vectors.dense(sc.textFile(args(6)).first().split(separator).map(_.toDouble)) else null
-            this.start(sc, rdd, typeWise, nfs, scoreClassName, clVector)
+            
+            start(sc, rdd, typeWise, nfs, scoreClassName, clVector)
         }
         
         if (inputFormat == "libsvm") {
             val data = MLUtils.loadLibSVMFile(sc, filename).map(lp => new LabeledPoint(lp.label, lp.features.compressed))
             
             val rdd = data.repartition(numPartitions = nPartition).persist(StorageLevel.MEMORY_AND_DISK_SER)
-            
             val clVector = if (typeWise == "row-wise") Vectors.dense(sc.textFile(args(6)).first().split(",").map(_.toDouble)) else null
-            this.start(sc, rdd, typeWise, nfs, scoreClassName, clVector)
+    
+            start(sc, rdd, typeWise, nfs, scoreClassName, clVector)
         }
     }
     
     def start(sc: SparkContext, data: RDD[(LabeledPoint)], typeWise: String, nfs: Int, scoreClassName: String, clVector: Vector) {
+        printStats(data)
+        
         val ifs = new IterativeFeatureSelection()
         
         if (typeWise == "column-wise") this.printResults(ifs.columnWise(sc, data, nfs, scoreClassName))
         if (typeWise == "row-wise")    this.printResults(ifs.rowWise(sc, data, nfs, scoreClassName, clVector))
+    }
+    
+    def printStats(data: RDD[(LabeledPoint)]): Unit = {
+        val nRows: Long = data.count()
+        val nCols: Int = data.first.features.size
+        val nData: Int = data.map(x => x.features.numNonzeros + 1).reduce(_ + _)
+        
+        println()
+        println("Input dataset stats:")
+        println("-- number or rows:            " + nRows)
+        println("-- number or columns:         " + nCols)
+        println("-- number or non-zero points: " + nData)
     }
     
     def printResults(res: Array[(Long, Double)]) {

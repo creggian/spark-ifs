@@ -161,13 +161,21 @@ class IterativeFeatureSelection {
                 val fcIdxCtZero = fl.indexWhere(_ == 0.0)
                 val marginalSum = matWithClass.map(_.sum)
                 for (i <- 0 until cln) {
-                    matWithClass(i)(fcIdxCtZero) = cvt(cl(i)) - marginalSum(i)
+                    val totRowI = if (cvt.contains(cl(i))) cvt(cl(i)) else 0L
+                    if (totRowI - marginalSum(i) < 0) throw new RuntimeException("Marginal sum greater than total")
+                    matWithClass(i)(fcIdxCtZero) = totRowI - marginalSum(i)
                 }
-                for (key <- matWithFeaturesMap.keys) {
-                    val ct = matWithFeaturesMap(key)
+                for (fsIdx <- matWithFeaturesMap.keys) {
+                    val ct = matWithFeaturesMap(fsIdx)
                     val marginalSum = ct.map(_.sum)
                     for (i <- 0 until fln) {
-                        matWithFeaturesMap(key)(i)(fcIdxCtZero) = fvt(key)(fl(i)) - marginalSum(i)
+                        // matWithFeaturesMap(key) represents the 'fln' x 'fln' contingency table of the selected feature 'fsIdx' (rows) with the candidate feature (cols)
+                        // 'i' is the index of all the possible values of 'fl' (of length fln) => row index
+                        // 'fcIdxCtZero' is the column index where the feature candidate value is zero
+                        val fsCt = fvt(fsIdx)
+                        val totRowI = if (fsCt.contains(fl(i))) fvt(fsIdx)(fl(i)) else 0L
+                        if (totRowI - marginalSum(i) < 0) throw new RuntimeException("Marginal sum greater than total")
+                        matWithFeaturesMap(fsIdx)(i)(fcIdxCtZero) = totRowI - marginalSum(i)
                     }
                 }
     
